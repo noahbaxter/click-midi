@@ -11,7 +11,8 @@ import soundfile as sf
 from midiutil.MidiFile import MIDIFile
 
 ZERO = 1e-8
-BPM_TOL = 0.05  # min change for a new BPM to be used
+BPM_TOL = 0.05      # min change for a new BPM to be set
+MIN_SILENCE = 0.001 # min amount of silence before new click
 
 def main(input, 
          output='',
@@ -23,7 +24,7 @@ def main(input,
          click_16th='clicks/sixteenth.wav', 
          click_32nd='clicks/thirtysecond.wav'):
 
-    global SAMPLE_RATE, REDUCE_BPM_CHANGES, REDUCE_SIG_CHANGES, PRINT_BPM_CHANGES, PRINT_SIG_CHANGES
+    global SAMPLE_RATE, REDUCE_BPM_CHANGES, REDUCE_SIG_CHANGES, VERBOSE
 
     in_file = input
     out_file = output if output != '' else os.path.splitext(input)[0] + ".mid"
@@ -33,8 +34,7 @@ def main(input,
     REDUCE_BPM_CHANGES = not force_events
     REDUCE_SIG_CHANGES = not force_events
     
-    PRINT_BPM_CHANGES = verbose
-    PRINT_SIG_CHANGES = verbose
+    VERBOSE = verbose
 
     # create click_array
     click_dicts = [
@@ -68,7 +68,7 @@ def create_click_arr(audio, click_dicts):
             silent = False
 
         # Detect click end
-        elif all(abs(s) < ZERO for s in audio[index:index+10]) and not silent:
+        elif all(abs(s) < ZERO for s in audio[index:index+seconds_to_samples(MIN_SILENCE)]) and not silent:
             silent = True
             click_arr += [{
                 "start_samples": click_start,
@@ -108,7 +108,7 @@ def create_midi(click_arr):
                 if not REDUCE_SIG_CHANGES or time_sig != (numerator, denominator):
                     time_sig = (numerator, denominator)
                     
-                    if PRINT_SIG_CHANGES:
+                    if VERBOSE:
                         print(f"SIG: {time_sig}")
                     midi_file.addTimeSignature(track=0,
                                                time=bar_start - time_slip,
@@ -122,7 +122,7 @@ def create_midi(click_arr):
             if not denominator:
                 denominator = division
             elif denominator != division:
-                raise Exception("cannot have different division clicks in the same measure")
+                raise Exception(f"measure starting at {samples_to_seconds(click_arr[bar_start]['start_samples'])}s has multiple divisions of clicks")
             
             numerator += 1
 
@@ -152,7 +152,7 @@ def create_midi(click_arr):
                     if not REDUCE_BPM_CHANGES or (not bpm or abs(new_bpm - bpm) > BPM_TOL):
                         bpm = new_bpm
                         
-                        if PRINT_BPM_CHANGES:
+                        if VERBOSE:
                             print(f"BPM: {bpm}")
                         midi_file.addTempo(track=0, 
                                            time=jndex - time_slip, 
@@ -187,8 +187,7 @@ def init_click_dicts(click_dicts):
     while low < len(click_dicts):
         for i in range(low+1, len(click_dicts)):
             if get_zcr(click_dicts[low]["audio"]) == get_zcr(click_dicts[i]["audio"]):
-                print(f"Two clicks samples, {click_dicts[low]['division']}:{click_dicts[low]['path']} and {click_dicts[i]['division']}:{click_dicts[i]['path']}, sound too similar")
-                exit()
+                Exception(f"Two clicks samples, {click_dicts[low]['division']}:{click_dicts[low]['path']} and {click_dicts[i]['division']}:{click_dicts[i]['path']}, sound too similar")
         low += 1
     
 def init_midi():
@@ -200,11 +199,12 @@ def init_midi():
 # DSP UTILS
 def find_click_division(input_audio, click_dicts):
     for division, click_audio in ((d["division"], d["audio"]) for d in click_dicts):
-
+        input_audio, click_audio = make_buffers_comparable(input_audio, click_audio[1:])
+        
         # the lazy way
         if get_zcr(click_audio) == get_zcr(input_audio):
             return division
-        
+    
     # backup in case lazy way doesn't work
     best_division = ""
     lowest_error = None
@@ -216,7 +216,19 @@ def find_click_division(input_audio, click_dicts):
             lowest_error = error
             
     return best_division
-        
+
+def make_buffers_comparable(audio_1, audio_2):
+    min_len = min(len(audio_1), len(audio_2))
+    max_1 = max(max(audio_1), abs(min(audio_1)))
+    max_2 = max(max(audio_2), abs(min(audio_2)))
+
+    audio_1 *= max_2 / max_1
+    
+    audio_1 = audio_1[:min_len]
+    audio_2 = audio_2[:min_len]
+
+    return audio_1, audio_2
+
 # MATH UTILS
 
 # zero crossing rate - thanks stooart for the suggestion :)
@@ -264,16 +276,19 @@ def prepare_audio(path):
     
     return audio
 
+def samples_to_seconds(num_samples):
+    return round(num_samples / SAMPLE_RATE, 3)
+
+def seconds_to_samples(num_seconds):
+    return round(num_seconds * SAMPLE_RATE)
+
 # Passthrough to main
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='A tool for converting click tracks to midi with tempo and time signature changes preserved')
     parser.add_argument('-i', '--input', required=True, help='An input audio file of your clicktrack in full')
     parser.add_argument('-o', '--output', required=False, default='', help='An output midi file to contain your tempo')
-    
-    parser.add_argument('-sr', '--sample_rate', required=False, default=44100, help='The sample rate of all audio files')
-    parser.add_argument('-a', '--add_instrument', required=False, help='Allows the packaging of this metronome with other midi instruments in a single multitrack')
-    
+
     parser.add_argument('-fe', '--force_events', action='store_true', help='Forces a BPM or time signature change midi event on every click, even when unecessary')
     parser.add_argument('-v', '--verbose', action='store_true', help='Display all BPM and time changes')
     
@@ -288,7 +303,6 @@ if __name__ == '__main__':
     sys.exit(main(
         args['input'],
         args['output'],
-        args['sample_rate'],
         args['force_events'],
         args['verbose'],
         args['click_bar'],
