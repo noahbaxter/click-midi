@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import sys
 import math
 import argparse
@@ -12,45 +13,36 @@ from midiutil.MidiFile import MIDIFile
 ZERO = 1e-8
 BPM_TOL = 0.05  # min change for a new BPM to be used
 
-def main():
+def main(input, 
+         output='',
+         force_events=False, 
+         verbose=False, 
+         click_bar='clicks/bar.wav', 
+         click_4th='clicks/quarter.wav', 
+         click_8th='clicks/eigth.wav', 
+         click_16th='clicks/sixteenth.wav', 
+         click_32nd='clicks/thirtysecond.wav'):
 
     global SAMPLE_RATE, REDUCE_BPM_CHANGES, REDUCE_SIG_CHANGES, PRINT_BPM_CHANGES, PRINT_SIG_CHANGES
-    
-    
-    parser = argparse.ArgumentParser(description='A tool for converting click tracks to midi with tempo and time signature changes preserved')
-    parser.add_argument('-i', '--input', required=True, help='An input audio file of your clicktrack in full')
-    parser.add_argument('-i1', '--click_bar', required=False, default='clicks/bar.wav', help='An input audio file of your barline click sound')
-    parser.add_argument('-i4', '--click_4th', required=False, default='clicks/quarter.wav', help='An input audio file of your quatre note click sound')
-    parser.add_argument('-i8', '--click_8th', required=False, default='clicks/eigth.wav', help='An input audio file of your eigth note click sound')
-    parser.add_argument('-i16', '--click_16th', required=False, default='clicks/sixteenth.wav', help='An input audio file of your sixteenth note click sound')
-    parser.add_argument('-i32', '--click_32nd', required=False, default='clicks/thirtysecond.wav', help='An input audio file of your thirty second note click sound')
-    parser.add_argument('-o', '--output', default='BEAT.mid', help='An output midi file to contain your tempo')
-    
-    parser.add_argument('-sr', '--sample_rate', required=False, default=44100, help='The sample rate of all audio files')
-    parser.add_argument('-a', '--add_instrument', required=False, help='Allows the packaging of this metronome with other midi instruments in a single multitrack')
-    
-    parser.add_argument('-m', '--maximize', action='store_true', help='Forces a BPM or time signature change midi event on every click, even when unecessary')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Display all BPM and time changes')
-    
-    args = vars(parser.parse_args())
 
-    in_file = args['input']
-    out_file = args['output']
-    SAMPLE_RATE = args['sample_rate']
+    in_file = input
+    out_file = output if output != '' else os.path.splitext(input)[0] + ".mid"
     
-    REDUCE_BPM_CHANGES = not args['maximize']
-    REDUCE_SIG_CHANGES = not args['maximize']
+    SAMPLE_RATE = sf.read(in_file)[1]
     
-    PRINT_BPM_CHANGES = args['verbose']
-    PRINT_SIG_CHANGES = args['verbose']
+    REDUCE_BPM_CHANGES = not force_events
+    REDUCE_SIG_CHANGES = not force_events
+    
+    PRINT_BPM_CHANGES = verbose
+    PRINT_SIG_CHANGES = verbose
 
     # create click_array
     click_dicts = [
-        {"division": 1, "path": args['click_bar']},
-        {"division": 4, "path": args['click_4th']},
-        {"division": 8, "path": args['click_8th']},
-        {"division": 16, "path": args['click_16th']},
-        {"division": 32, "path": args['click_32nd']},
+        {"division": 1, "path": click_bar},
+        {"division": 4, "path": click_4th},
+        {"division": 8, "path": click_8th},
+        {"division": 16, "path": click_16th},
+        {"division": 32, "path": click_32nd},
     ]
     init_click_dicts(click_dicts=click_dicts)
     
@@ -275,4 +267,33 @@ def prepare_audio(path):
 # Passthrough to main
 
 if __name__ == '__main__':
-    sys.exit(main())
+    parser = argparse.ArgumentParser(description='A tool for converting click tracks to midi with tempo and time signature changes preserved')
+    parser.add_argument('-i', '--input', required=True, help='An input audio file of your clicktrack in full')
+    parser.add_argument('-o', '--output', required=False, default='', help='An output midi file to contain your tempo')
+    
+    parser.add_argument('-sr', '--sample_rate', required=False, default=44100, help='The sample rate of all audio files')
+    parser.add_argument('-a', '--add_instrument', required=False, help='Allows the packaging of this metronome with other midi instruments in a single multitrack')
+    
+    parser.add_argument('-fe', '--force_events', action='store_true', help='Forces a BPM or time signature change midi event on every click, even when unecessary')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Display all BPM and time changes')
+    
+    parser.add_argument('-i1', '--click_bar', required=False, default='clicks/bar.wav', help='An input audio file of your barline click sound')
+    parser.add_argument('-i4', '--click_4th', required=False, default='clicks/quarter.wav', help='An input audio file of your quatre note click sound')
+    parser.add_argument('-i8', '--click_8th', required=False, default='clicks/eigth.wav', help='An input audio file of your eigth note click sound')
+    parser.add_argument('-i16', '--click_16th', required=False, default='clicks/sixteenth.wav', help='An input audio file of your sixteenth note click sound')
+    parser.add_argument('-i32', '--click_32nd', required=False, default='clicks/thirtysecond.wav', help='An input audio file of your thirty second note click sound')
+    
+    args = vars(parser.parse_args())
+    
+    sys.exit(main(
+        args['input'],
+        args['output'],
+        args['sample_rate'],
+        args['force_events'],
+        args['verbose'],
+        args['click_bar'],
+        args['click_4th'],
+        args['click_8th'],
+        args['click_16th'],
+        args['click_32nd'],
+    ))
