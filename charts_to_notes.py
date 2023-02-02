@@ -6,7 +6,7 @@ from time import time
 
 from mido import MidiFile, MidiTrack, Message, MetaMessage
  
-PART_TYPES = ["BEAT", "PART DRUMS", "EVENTS"]
+PART_TYPES = ["BEAT", "PART DRUM", "EVENTS"]
 TICKS_PER_BEAT = 480        # somewhat arbitrary, but everything needs to convert to a single tpb
 TOM_NOTES = [110, 111, 112] # drop -12 pitch to add tom notes to expert
 SECTION_NOTE = 0
@@ -34,9 +34,8 @@ def main(in_files, out_file):
         if "BEAT" in part:
             out_midi.tracks.insert(0, midi_file.tracks[0])
             continue
-        elif "DRUMS"in part:
-            purge_messages_of_type(track, ['time_signature'])
-            add_toms(track)
+        elif "DRUM"in part:
+            adjust_drums(track)
         elif "EVENTS" in part:
             track = create_events(track)
             
@@ -65,6 +64,11 @@ def adjust_message_timings(midi_file, new_ticks_per_beat):
     for track in midi_file.tracks:
         for message in track:
             message.time = int(message.time * multiplier)
+
+def adjust_drums(track):
+    track.insert(1, MetaMessage('text', text=f'ENABLE_CHART_DYNAMICS', time=0))
+    purge_messages_of_type(track, ['time_signature'])
+    add_toms(track)
 
 def add_toms(track):
     types = ["note_on", "note_off"]

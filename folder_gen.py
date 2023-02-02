@@ -27,7 +27,10 @@ def main(input, output=''):
         
         if "beat" in os.path.splitext(f)[0] and any(f.endswith(ext) for ext in AUDIO_FORMATS + [".mid"]):
             if beat:
-              raise Exception("multiple beat files detected")
+                if f.endswith(".mid") and not beat.endswith(".mid"):
+                    beat = file # a beat midi file overrides a beat audio file, but only once
+                else:
+                    raise Exception("multiple beat files detected")
             beat = file
         elif any(f.endswith(ext) for ext in AUDIO_FORMATS):
             if audio:
