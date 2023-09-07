@@ -122,7 +122,7 @@ def create_midi(click_arr):
             if not denominator:
                 denominator = division
             elif denominator != division:
-                raise Exception(f"measure starting at {samples_to_seconds(click_arr[bar_start]['start_samples'])}s has multiple divisions of clicks")
+                raise Exception(f"measure starting at {samples_to_seconds(click_arr[bar_start]['start_samples'])}s has multiple divisions of clicks.\nsometimes this can happen if your DAW isn't set to reder at 44.1khz, the sample rate of the default clicks")
             
             numerator += 1
 
