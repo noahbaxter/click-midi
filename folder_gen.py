@@ -13,6 +13,7 @@ AUDIO_FORMATS = [".mp3", ".ogg", ".wav", ".flac", ".aac"]
 IMAGE_FORMATS = [".png", ".jpg"]
 
 DIV_NUM_LINES = 80
+TARGET_LOUDNESS = -12.0
 VERBOSE = False
 
 def main(input, output=''):
@@ -121,7 +122,7 @@ def generate(beat, audio, instruments, event, image, ini, input, output):
     if os.path.isfile(audio_out):
         already_exists(audio_out)
     elif not audio.lower().endswith(".ogg"):
-        convert_audio(audio, audio_out)
+        convert_audio(audio, audio_out, TARGET_LOUDNESS)
     else:
         print(f"Copying '{audio}' to '{audio_out}'")
         shutil.copy(audio, audio_out)
@@ -135,7 +136,7 @@ def generate(beat, audio, instruments, event, image, ini, input, output):
                 already_exists(image_out)
             else:
                 print(f"Generating '{image_out}' from '{image}'")
-                if base is "album":
+                if base == "album":
                     create_album(image, image_out)
                 else:
                     create_background(image, image_out)
@@ -151,9 +152,14 @@ def generate(beat, audio, instruments, event, image, ini, input, output):
         shutil.copy(ini, ini_out)
         
     
-def convert_audio(f_in, f_out):
+def convert_audio(f_in, f_out, target_amplitude=None):
     print(f"Converting '{f_in}' to '{f_out}'")
     audio = AudioSegment.from_file(f_in)
+    
+    if target_amplitude != None:
+        dB_change = target_amplitude - audio.dBFS
+        audio = audio.apply_gain(dB_change)
+
     audio.export(f_out)
     
 MAX_RESOLUTION = (2560, 1440)
