@@ -2,7 +2,7 @@ import os
 import sys
 import shutil
 import argparse
-import ffmpeg_normalize
+from pydub import AudioSegment
 
 from PIL import Image, ImageFilter, ImageDraw
 
@@ -11,10 +11,9 @@ import click_to_midi
 
 AUDIO_FORMATS = [".mp3", ".ogg", ".wav", ".flac", ".aac"]
 IMAGE_FORMATS = [".png", ".jpg"]
-SAMPLE_RATE = 44100
 
 DIV_NUM_LINES = 80
-TARGET_LOUDNESS = -8.0
+TARGET_LOUDNESS = -12.0
 VERBOSE = False
 
 def main(input, output=''):
@@ -155,15 +154,13 @@ def generate(beat, audio, instruments, event, image, ini, input, output):
     
 def convert_audio(f_in, f_out, target_amplitude=None):
     print(f"Converting '{f_in}' to '{f_out}'")
-
-    ffmpeg = ffmpeg_normalize.FFmpegNormalize(sample_rate=SAMPLE_RATE, audio_codec="libvorbis", )
-    ffmpeg.add_media_file(input_file=f_in, output_file=f_out)
-    
+    audio = AudioSegment.from_file(f_in)
     if target_amplitude != None:
-        ffmpeg.loudness_range_target = 18
-        ffmpeg.target_level = target_amplitude
+        dB_change = min(0, target_amplitude - audio.dBFS)
+        print(dB_change)
+        audio = audio.apply_gain(dB_change)
 
-    ffmpeg.run_normalization()
+    audio.export(f_out)
     
 MAX_RESOLUTION = (2560, 1440)
 
