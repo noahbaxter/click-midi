@@ -1,0 +1,7 @@
+mido
+numpy
+soundfile
+midiutil
+pydub
+Pillow
+pyloudnorm
