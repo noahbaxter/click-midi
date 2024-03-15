@@ -6,7 +6,7 @@ from time import time
 
 from mido import MidiFile, MidiTrack, Message, MetaMessage
  
-PART_TYPES = ["BEAT", "PART DRUM", "EVENTS"]
+PART_TYPES = ["BEAT", "PART DRUMS", "EVENTS"]
 TICKS_PER_BEAT = 480        # somewhat arbitrary, but everything needs to convert to a single tpb
 TOM_NOTES = [110, 111, 112] # drop -12 pitch to add tom notes to expert
 SECTION_NOTE = 0
