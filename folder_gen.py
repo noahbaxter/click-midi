@@ -14,6 +14,7 @@ IMAGE_FORMATS = [".png", ".jpg"]
 
 DIV_NUM_LINES = 80
 TARGET_LOUDNESS = -12.0
+TARGET_LOUDNESS = None
 VERBOSE = False
 
 def main(input, output=''):
@@ -88,44 +89,56 @@ def generate(beat, audio, instruments, event, image, ini, input, output):
         os.makedirs(output)
     
     print("\nMIDI\t" + "="*DIV_NUM_LINES)
-    # Generate BEAT.mid if not present
-    beat_midi_path = beat
-    if not beat.lower().endswith(".mid"):
-        audio_in = beat
-        if not beat.lower().endswith(".wav"):
-            audio_out = os.path.join(input, "BEAT.wav")
-            convert_audio(audio_in, audio_out)
-            audio_in = audio_out
+    
+    # Generate BEAT.mid
+    if beat:
+        beat_midi_path = beat
+        if not beat.lower().endswith(".mid"):
+            audio_in = beat
+            if not beat.lower().endswith(".wav"):
+                audio_out = os.path.join(input, "BEAT.wav")
+                convert_audio(audio_in, audio_out)
+                audio_in = audio_out
+                
+            beat_midi_path = os.path.join(input, "BEAT.mid")
             
-        beat_midi_path = os.path.join(input, "BEAT.mid")
-        
-        print("Generating 'BEAT.mid'")
-        click_to_midi.main(audio_in, beat_midi_path, verbose=VERBOSE)
+            print("Generating 'BEAT.mid'")
+            click_to_midi.main(audio_in, beat_midi_path, verbose=VERBOSE)
+    else:
+        print("No beat file found")
     
     # Generate notes.mid
-    midi_output = os.path.join(output, "notes.mid")
-    if os.path.isfile(midi_output):
-        already_exists(midi_output)
-    else:
-        midi_file_paths = [beat_midi_path]
-        if event:
-            midi_file_paths += [event]
-        for instrument in instruments:
-            midi_file_paths += [instrument]
+    if instruments or event:
+        midi_output = os.path.join(output, "notes.mid")
+        if os.path.isfile(midi_output):
+            already_exists(midi_output)
+        else:
+            midi_file_paths = []
+            if beat:
+                midi_file_paths += [beat_midi_path]
+            if event:
+                midi_file_paths += [event]
+            for instrument in instruments:
+                midi_file_paths += [instrument]
 
         charts_to_notes.main(midi_file_paths, midi_output)
+    else:
+        print("No midi instruments or events found")
     
     
     print("\nAUDIO\t" + "="*DIV_NUM_LINES)
     # Copy or convert song audio
-    audio_out = os.path.join(output, "song.ogg")
-    if os.path.isfile(audio_out):
-        already_exists(audio_out)
-    elif not audio.lower().endswith(".ogg"):
-        convert_audio(audio, audio_out, TARGET_LOUDNESS)
+    if audio:
+        audio_out = os.path.join(output, "song.ogg")
+        if os.path.isfile(audio_out):
+            already_exists(audio_out)
+        elif not audio.lower().endswith(".ogg"):
+            convert_audio(audio, audio_out, TARGET_LOUDNESS)
+        else:
+            print(f"Copying '{audio}' to '{audio_out}'")
+            shutil.copy(audio, audio_out)
     else:
-        print(f"Copying '{audio}' to '{audio_out}'")
-        shutil.copy(audio, audio_out)
+        print("No audio file found")
     
     if image:
         print("\nIMAGE\t" + "="*DIV_NUM_LINES)
@@ -140,6 +153,8 @@ def generate(beat, audio, instruments, event, image, ini, input, output):
                     create_album(image, image_out)
                 else:
                     create_background(image, image_out)
+    else:
+        print("No image file found")
         
     print("\nINI\t" + "="*DIV_NUM_LINES)
     if not ini:
